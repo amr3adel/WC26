@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>l ghalabokat</title>
+    <meta
+      name="description"
+      content="A World Cup 2026 prediction pool for friends."
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell" aria-label="l ghalabokat app">
+      <header class="topbar">
+        <div class="brand-row">
+          <div class="brand-lockup">
+            <div class="brand-ball" aria-hidden="true">
+              <span></span>
+            </div>
+            <div>
+              <p class="eyebrow">World Cup 2026 pool</p>
+              <h1>l ghalabokat</h1>
+            </div>
+          </div>
+
+          <div class="header-actions" aria-label="Pool actions">
+            <button class="icon-button" type="button" data-view-target="pools" aria-label="Pool info">
+              ?
+            </button>
+            <button class="icon-button score-icon" type="button" data-view-target="ranking" aria-label="Ranking">
+              2-1
+            </button>
+            <button class="icon-button" type="button" data-view-target="profile" aria-label="Profile settings">
+              ⚙
+            </button>
+          </div>
+        </div>
+
+        <div class="player-switch">
+          <label for="activePlayer">Predicting as</label>
+          <select id="activePlayer"></select>
+        </div>
+      </header>
+
+      <nav class="date-strip" id="dateStrip" aria-label="Match dates"></nav>
+
+      <section class="view is-active" id="predictView" data-view="predict" aria-labelledby="predictTitle">
+        <div class="section-head">
+          <div>
+            <p id="selectedDateMeta">Today</p>
+            <h2 id="predictTitle">Match predictions</h2>
+          </div>
+          <div class="round-chip" id="matchCountChip">0 matches</div>
+        </div>
+        <div class="match-list" id="matchList"></div>
+      </section>
+
+      <section class="view" id="extraView" data-view="extra" aria-labelledby="extraTitle" hidden>
+        <div class="section-head">
+          <div>
+            <p>Bonus picks</p>
+            <h2 id="extraTitle">Extra points</h2>
+          </div>
+          <div class="round-chip">Pool boosts</div>
+        </div>
+        <div id="extraContent" class="panel-stack"></div>
+      </section>
+
+      <section class="view" id="poolsView" data-view="pools" aria-labelledby="poolsTitle" hidden>
+        <div class="section-head">
+          <div>
+            <p>Private league</p>
+            <h2 id="poolsTitle">l ghalabokat</h2>
+          </div>
+          <div class="round-chip">LG-2026</div>
+        </div>
+        <div id="poolsContent" class="panel-stack"></div>
+      </section>
+
+      <section class="view" id="rankingView" data-view="ranking" aria-labelledby="rankingTitle" hidden>
+        <div class="section-head">
+          <div>
+            <p>Live table</p>
+            <h2 id="rankingTitle">Ranking</h2>
+          </div>
+          <div class="round-chip" id="rankingUpdated">Saved locally</div>
+        </div>
+        <div id="rankingContent" class="panel-stack"></div>
+      </section>
+
+      <section class="view" id="profileView" data-view="profile" aria-labelledby="profileTitle" hidden>
+        <div class="section-head">
+          <div>
+            <p>Player data</p>
+            <h2 id="profileTitle">Profile</h2>
+          </div>
+          <div class="round-chip">Device save</div>
+        </div>
+        <div id="profileContent" class="panel-stack"></div>
+      </section>
+    </main>
+
+    <nav class="bottom-nav" aria-label="Main navigation">
+      <button class="nav-item is-active" type="button" data-view-target="predict" aria-label="Predict">
+        <span class="nav-icon">▥</span>
+        <span>Predict</span>
+      </button>
+      <button class="nav-item" type="button" data-view-target="extra" aria-label="Extra">
+        <span class="nav-icon">＋</span>
+        <span>Extra</span>
+      </button>
+      <button class="nav-item" type="button" data-view-target="pools" aria-label="Pools">
+        <span class="nav-icon">▦</span>
+        <span>Pools</span>
+      </button>
+      <button class="nav-item" type="button" data-view-target="ranking" aria-label="Ranking">
+        <span class="nav-icon">▣</span>
+        <span>Ranking</span>
+      </button>
+      <button class="nav-item" type="button" data-view-target="profile" aria-label="Profile">
+        <span class="nav-icon">♙</span>
+        <span>Profile</span>
+      </button>
+    </nav>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
