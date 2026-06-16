@@ -1,4 +1,4 @@
-const STORE_KEY = "l-ghalabokat:v1";
+const STORE_KEY = "l-ghalabokat:v2";
 
 const teams = {
   Spain: {
@@ -262,10 +262,10 @@ const schedule = [
 ];
 
 const demoPlayers = [
-  { id: "amr", name: "Amr", handle: "amr", favorite: "Egypt", color: "#ff5a00" },
-  { id: "mido", name: "Mido", handle: "mido", favorite: "Argentina", color: "#2f80ed" },
-  { id: "kareem", name: "Kareem", handle: "kareem", favorite: "Brazil", color: "#34c759" },
-  { id: "nada", name: "Nada", handle: "nada", favorite: "Spain", color: "#e84d4d" },
+  { id: "amr", name: "Amr", email: "amr@example.com", handle: "amr", favorite: "Egypt", color: "#ff5a00" },
+  { id: "mido", name: "Mido", email: "mido@example.com", handle: "mido", favorite: "Argentina", color: "#2f80ed" },
+  { id: "kareem", name: "Kareem", email: "kareem@example.com", handle: "kareem", favorite: "Brazil", color: "#34c759" },
+  { id: "nada", name: "Nada", email: "nada@example.com", handle: "nada", favorite: "Spain", color: "#e84d4d" },
 ];
 
 const demoPredictions = {
@@ -306,7 +306,9 @@ const matchMap = new Map(schedule.map((item) => [item.id, item]));
 let state = loadState();
 
 const elements = {
-  activePlayer: document.querySelector("#activePlayer"),
+  identityCard: document.querySelector("#identityCard"),
+  identityName: document.querySelector("#identityName"),
+  identityEmail: document.querySelector("#identityEmail"),
   dateStrip: document.querySelector("#dateStrip"),
   matchList: document.querySelector("#matchList"),
   selectedDateMeta: document.querySelector("#selectedDateMeta"),
@@ -318,6 +320,7 @@ const elements = {
   toast: document.querySelector("#toast"),
 };
 
+handleJoinLink();
 renderApp();
 bindEvents();
 
@@ -359,9 +362,15 @@ function bindEvents() {
       return;
     }
 
-    const addPlayer = event.target.closest("[data-action='add-player']");
-    if (addPlayer) {
-      addPlayerFromInput();
+    const invitePlayer = event.target.closest("[data-action='send-invite']");
+    if (invitePlayer) {
+      sendInviteFromForm(invitePlayer);
+      return;
+    }
+
+    const registerPlayer = event.target.closest("[data-action='register-player']");
+    if (registerPlayer) {
+      registerFromForm(registerPlayer);
       return;
     }
 
@@ -422,16 +431,10 @@ function bindEvents() {
     }
   });
 
-  elements.activePlayer.addEventListener("change", () => {
-    state.activePlayerId = elements.activePlayer.value;
-    persist();
-    renderApp();
-    showToast(`Now predicting as ${activePlayer().name}`);
-  });
-
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" && event.target.matches("#newPlayerName")) {
-      addPlayerFromInput();
+    if (event.key === "Enter" && event.target.matches("#inviteEmail, #registerEmail")) {
+      event.preventDefault();
+      event.target.id === "registerEmail" ? registerFromForm(event.target) : sendInviteFromForm(event.target);
     }
   });
 }
@@ -506,16 +509,19 @@ function persist() {
 }
 
 function renderApp() {
-  renderActivePlayerSelect();
+  renderIdentityCard();
   renderDateStrip();
   setView(state.activeView, false);
 }
 
-function renderActivePlayerSelect() {
-  elements.activePlayer.innerHTML = state.players
-    .map((player) => `<option value="${escapeHtml(player.id)}">${escapeHtml(player.name)}</option>`)
-    .join("");
-  elements.activePlayer.value = state.activePlayerId;
+function renderIdentityCard() {
+  const player = activePlayer();
+  const registered = Boolean(player.email && !player.email.endsWith("@example.com"));
+  elements.identityName.textContent = player.name || "Guest";
+  elements.identityEmail.textContent = registered ? player.email : "Register with email to lock this device";
+  elements.identityCard.classList.toggle("is-registered", registered);
+  const button = elements.identityCard.querySelector("button");
+  if (button) button.textContent = registered ? "Profile" : "Register";
 }
 
 function renderDateStrip() {
@@ -572,7 +578,16 @@ function renderMatchCard(item) {
   const complete = isPredictionComplete(prediction);
   const featuredClass = item.matchOfWeek ? " is-featured" : "";
   const result = state.results[item.id];
-  const scoreLabel = result ? `Result ${result.home}-${result.away}` : complete ? "Saved" : "Needs score";
+  const resultComplete = isResultComplete(result);
+  const scored = resultComplete && complete ? scorePrediction(prediction, result, item) : null;
+  const status = matchStatus(item, result);
+  const scoreLabel = resultComplete
+    ? `Final ${result.home}-${result.away}${scored ? ` · ${scored.points} pts` : ""}`
+    : status === "finished"
+      ? "Awaiting final score"
+      : complete
+        ? "Saved"
+        : "Needs score";
 
   return `
     <article class="match-card${featuredClass}" data-match-card="${item.id}">
@@ -611,10 +626,17 @@ function renderMatchCard(item) {
 
         <div class="card-footer">
           <span class="venue">${escapeHtml(item.venue)}</span>
-          <span class="save-state ${complete ? "is-complete" : "is-pending"}" data-save-state="${item.id}">
+          <span class="save-state ${resultComplete ? "is-result" : complete ? "is-complete" : "is-pending"}" data-save-state="${item.id}">
             ${scoreLabel}
           </span>
         </div>
+        ${
+          resultComplete
+            ? `<div class="result-summary">${renderPredictionOutcome(prediction, result, scored)}</div>`
+            : status === "finished"
+              ? `<div class="result-summary is-waiting">Match time has passed. Final result will appear here once entered.</div>`
+              : ""
+        }
       </div>
     </article>
   `;
@@ -768,13 +790,15 @@ function renderPools() {
 
     <div class="panel">
       <div class="panel-title">
-        <h3>Add friend</h3>
-        <span class="status-pill">Local</span>
+        <h3>Invite friend</h3>
+        <span class="status-pill">Email link</span>
       </div>
-      <div class="utility-row">
-        <input id="newPlayerName" class="text-input" type="text" placeholder="Friend name" aria-label="Friend name" />
-        <button class="primary-button" type="button" data-action="add-player">Add</button>
+      <div class="invite-grid">
+        <input id="inviteName" class="text-input" type="text" placeholder="Friend name" aria-label="Friend name" />
+        <input id="inviteEmail" class="text-input" type="email" placeholder="friend@email.com" aria-label="Friend email" />
+        <button class="primary-button" type="button" data-action="send-invite">Send invite</button>
       </div>
+      <p class="helper-text" id="inviteStatus">Friends join from their own email link, so they cannot switch into another user from the app.</p>
     </div>
   `;
 }
@@ -789,7 +813,7 @@ function renderPoolPlayer(player) {
         <span class="avatar" style="--avatar: ${player.color}">${initials(player.name)}</span>
         <div>
           <strong>${escapeHtml(player.name)}</strong>
-          <span>@${escapeHtml(player.handle || slug(player.name))} · ${escapeHtml(player.favorite || "World Cup")}</span>
+          <span>${escapeHtml(player.email || `@${player.handle || slug(player.name)}`)} · ${escapeHtml(player.favorite || "World Cup")}</span>
         </div>
       </div>
       <span class="status-pill">${completed} picks</span>
@@ -833,14 +857,28 @@ function renderRankingRow(row, index) {
 
 function renderProfile() {
   const player = activePlayer();
+  const registered = Boolean(player.email && !player.email.endsWith("@example.com"));
   elements.profileContent.innerHTML = `
+    <div class="panel">
+      <div class="panel-title">
+        <h3>${registered ? "Registered device" : "Register to join"}</h3>
+        <span class="status-pill">${registered ? "Locked" : "Email link"}</span>
+      </div>
+      <div class="invite-grid">
+        <input id="registerName" class="text-input" type="text" value="${escapeHtml(player.name || "")}" placeholder="Your name" aria-label="Your name" />
+        <input id="registerEmail" class="text-input" type="email" value="${escapeHtml(registered ? player.email : "")}" placeholder="you@email.com" aria-label="Your email" />
+        <button class="primary-button" type="button" data-action="register-player">${registered ? "Update identity" : "Register"}</button>
+      </div>
+      <p class="helper-text" id="registerStatus">Registration sends a join link to your email. Opening that link selects your own profile on this device.</p>
+    </div>
+
     <div class="panel">
       <div class="profile-card">
         <div class="profile-left">
           <span class="avatar" style="--avatar: ${player.color}">${initials(player.name)}</span>
           <div>
             <strong>${escapeHtml(player.name)}</strong>
-            <span class="muted">@${escapeHtml(player.handle || slug(player.name))}</span>
+            <span class="muted">${escapeHtml(player.email || `@${player.handle || slug(player.name)}`)}</span>
           </div>
         </div>
         <span class="status-pill">${escapeHtml(player.favorite || "World Cup")}</span>
@@ -853,6 +891,10 @@ function renderProfile() {
         <label class="field">
           <span class="field-label">Handle</span>
           <input class="text-input" type="text" value="${escapeHtml(player.handle || "")}" data-profile-field="handle" />
+        </label>
+        <label class="field">
+          <span class="field-label">Email</span>
+          <input class="text-input" type="email" value="${escapeHtml(player.email || "")}" data-profile-field="email" />
         </label>
         <label class="field">
           <span class="field-label">Favorite team</span>
@@ -928,7 +970,7 @@ function updateProfileField(input) {
   player[field] = input.value.trim();
   if (field === "name" && !player.handle) player.handle = slug(player.name);
   persist();
-  renderActivePlayerSelect();
+  renderIdentityCard();
   showToast("Profile saved");
 }
 
@@ -937,31 +979,127 @@ function updatePoolField(input) {
   persist();
 }
 
-function addPlayerFromInput() {
-  const input = document.querySelector("#newPlayerName");
-  const name = input?.value.trim();
-  if (!name) return;
-  const idBase = slug(name) || `player-${Date.now()}`;
-  let id = idBase;
-  let index = 2;
-  while (state.players.some((player) => player.id === id)) {
-    id = `${idBase}-${index}`;
-    index += 1;
+function handleJoinLink() {
+  const params = new URLSearchParams(window.location.search);
+  const email = normalizeEmail(params.get("join"));
+  if (!email) return;
+  const name = params.get("name")?.trim() || emailName(email);
+  upsertPlayer({ name, email, activate: true });
+  persist();
+  window.history.replaceState({}, document.title, window.location.pathname);
+  showToast(`Welcome, ${name}`);
+}
+
+function upsertPlayer({ name, email, activate }) {
+  const id = playerIdFromEmail(email);
+  let player = state.players.find((item) => item.id === id || normalizeEmail(item.email) === email);
+  if (!player) {
+    player = {
+      id,
+      name,
+      email,
+      handle: slug(name),
+      favorite: "",
+      color: colors[state.players.length % colors.length],
+    };
+    state.players.push(player);
+  } else {
+    player.name = name || player.name;
+    player.email = email;
+    player.handle = player.handle || slug(player.name);
   }
-  const player = {
-    id,
-    name,
-    handle: idBase,
-    favorite: "",
-    color: colors[state.players.length % colors.length],
-  };
-  state.players.push(player);
-  state.predictions[id] = {};
-  state.activePlayerId = id;
-  input.value = "";
+  state.predictions[player.id] = state.predictions[player.id] || {};
+  state.specials[player.id] = state.specials[player.id] || {};
+  if (activate) state.activePlayerId = player.id;
+  return player;
+}
+
+function buildJoinUrl(email, name) {
+  const url = new URL(window.location.href);
+  url.search = "";
+  url.hash = "";
+  url.searchParams.set("join", normalizeEmail(email));
+  url.searchParams.set("name", name || emailName(email));
+  return url.toString();
+}
+
+function normalizeEmail(value = "") {
+  const email = String(value).trim().toLowerCase();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : "";
+}
+
+function playerIdFromEmail(email) {
+  const normalized = normalizeEmail(email);
+  return normalized ? `email-${slug(normalized)}` : "";
+}
+
+function emailName(email) {
+  return normalizeEmail(email).split("@")[0] || "Friend";
+}
+
+function setInlineStatus(node, message) {
+  if (node) node.textContent = message;
+  showToast(message.length > 72 ? message.slice(0, 69) + "..." : message);
+}
+
+function copyText(text) {
+  navigator.clipboard?.writeText(text).catch(() => {});
+}
+
+async function sendInviteFromForm(source) {
+  const panel = source.closest(".panel") || document;
+  const name = panel.querySelector("#inviteName")?.value.trim() || "";
+  const email = normalizeEmail(panel.querySelector("#inviteEmail")?.value);
+  const status = panel.querySelector("#inviteStatus");
+  if (!email) {
+    setInlineStatus(status, "Enter a valid email first.");
+    return;
+  }
+  const player = upsertPlayer({ name: name || emailName(email), email, activate: false });
+  persist();
+  renderPools();
+  await sendInviteEmail({ name: player.name, email, statusSelector: "#inviteStatus" });
+}
+
+async function registerFromForm(source) {
+  const panel = source.closest(".panel") || document;
+  const name = panel.querySelector("#registerName")?.value.trim() || "";
+  const email = normalizeEmail(panel.querySelector("#registerEmail")?.value);
+  const status = panel.querySelector("#registerStatus");
+  if (!email) {
+    setInlineStatus(status, "Enter your email to register this device.");
+    return;
+  }
+  const player = upsertPlayer({ name: name || emailName(email), email, activate: true });
   persist();
   renderApp();
-  showToast(`${name} joined the pool`);
+  await sendInviteEmail({ name: player.name, email, statusSelector: "#registerStatus" });
+}
+
+async function sendInviteEmail({ name, email, statusSelector }) {
+  const status = document.querySelector(statusSelector);
+  setInlineStatus(status, "Sending invite...");
+  const joinUrl = buildJoinUrl(email, name);
+  try {
+    const response = await fetch("/api/send-invite", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, email, pool: state.pool.name }),
+    });
+    const data = await response.json();
+    const link = data.joinUrl || joinUrl;
+    setInlineStatus(
+      status,
+      data.sent
+        ? `Invite sent to ${email}.`
+        : `Email service is not configured yet. Join link: ${link}`,
+    );
+    if (!data.sent) copyText(link);
+  } catch (error) {
+    console.warn(error);
+    setInlineStatus(status, `Could not send email from this browser. Join link: ${joinUrl}`);
+    copyText(joinUrl);
+  }
 }
 
 function resetData() {
@@ -1055,6 +1193,23 @@ function scorePrediction(prediction, result, item) {
   return { points, exact };
 }
 
+function matchStatus(item, result) {
+  if (isResultComplete(result)) return "result";
+  const [hour, minute] = item.time.split(":").map(Number);
+  const start = parseDate(item.date);
+  start.setHours(hour, minute, 0, 0);
+  const finishedEstimate = new Date(start.getTime() + 2 * 60 * 60 * 1000);
+  return new Date() > finishedEstimate ? "finished" : "open";
+}
+
+function renderPredictionOutcome(prediction, result, scored) {
+  if (!isPredictionComplete(prediction)) {
+    return `Final result entered: ${result.home}-${result.away}. No prediction was saved for this match.`;
+  }
+  const exactText = scored?.exact ? "Exact score" : scored?.points > 0 ? "Correct direction" : "No points";
+  return `Your pick: ${prediction.home}-${prediction.away}. Final: ${result.home}-${result.away}. ${exactText}: ${scored?.points || 0} pts.`;
+}
+
 function updateCardSaveState(matchId) {
   const stateNode = [...document.querySelectorAll("[data-save-state]")].find(
     (node) => node.dataset.saveState === matchId,
@@ -1065,6 +1220,7 @@ function updateCardSaveState(matchId) {
   stateNode.textContent = complete ? "Saved" : "Needs score";
   stateNode.classList.toggle("is-complete", complete);
   stateNode.classList.toggle("is-pending", !complete);
+  stateNode.classList.remove("is-result");
   if (complete) showToast("Prediction saved");
 }
 

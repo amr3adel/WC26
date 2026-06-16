@@ -25,21 +25,21 @@
           </div>
 
           <div class="header-actions" aria-label="Pool actions">
-            <button class="icon-button" type="button" data-view-target="pools" aria-label="Pool info">
-              ?
-            </button>
+            <button class="icon-button" type="button" data-view-target="pools" aria-label="Pool info">?</button>
             <button class="icon-button score-icon" type="button" data-view-target="ranking" aria-label="Ranking">
               2-1
             </button>
-            <button class="icon-button" type="button" data-view-target="profile" aria-label="Profile settings">
-              ⚙
-            </button>
+            <button class="icon-button" type="button" data-view-target="profile" aria-label="Profile settings">@</button>
           </div>
         </div>
 
-        <div class="player-switch">
-          <label for="activePlayer">Predicting as</label>
-          <select id="activePlayer"></select>
+        <div class="identity-card" id="identityCard">
+          <div>
+            <p class="mini-label">Predicting as</p>
+            <strong id="identityName">Guest</strong>
+            <span id="identityEmail">Register to lock your picks</span>
+          </div>
+          <button class="ghost-button compact-button" type="button" data-view-target="profile">Register</button>
         </div>
       </header>
 
@@ -95,7 +95,7 @@
             <p>Player data</p>
             <h2 id="profileTitle">Profile</h2>
           </div>
-          <div class="round-chip">Device save</div>
+          <div class="round-chip">Email identity</div>
         </div>
         <div id="profileContent" class="panel-stack"></div>
       </section>
@@ -103,23 +103,23 @@
 
     <nav class="bottom-nav" aria-label="Main navigation">
       <button class="nav-item is-active" type="button" data-view-target="predict" aria-label="Predict">
-        <span class="nav-icon">▥</span>
+        <span class="nav-icon">P</span>
         <span>Predict</span>
       </button>
       <button class="nav-item" type="button" data-view-target="extra" aria-label="Extra">
-        <span class="nav-icon">＋</span>
+        <span class="nav-icon">+</span>
         <span>Extra</span>
       </button>
       <button class="nav-item" type="button" data-view-target="pools" aria-label="Pools">
-        <span class="nav-icon">▦</span>
+        <span class="nav-icon">#</span>
         <span>Pools</span>
       </button>
       <button class="nav-item" type="button" data-view-target="ranking" aria-label="Ranking">
-        <span class="nav-icon">▣</span>
+        <span class="nav-icon">1</span>
         <span>Ranking</span>
       </button>
       <button class="nav-item" type="button" data-view-target="profile" aria-label="Profile">
-        <span class="nav-icon">♙</span>
+        <span class="nav-icon">@</span>
         <span>Profile</span>
       </button>
     </nav>
