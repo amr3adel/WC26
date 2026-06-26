@@ -305,6 +305,15 @@ const matchMap = new Map(schedule.map((item) => [item.id, item]));
 
 let state = loadState();
 
+const SUPABASE_URL = "https://emiqdagisbjyafwnwjhu.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_Ct3NnRd6JgxszTHB4t7-xw_jswQmkZc";
+let supabaseClient = null;
+
+if (typeof supabase !== "undefined") {
+  supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
+
+
 const elements = {
   identityCard: document.querySelector("#identityCard"),
   identityName: document.querySelector("#identityName"),
@@ -323,6 +332,8 @@ const elements = {
 handleJoinLink();
 renderApp();
 bindEvents();
+syncFromSupabase();
+
 
 function match(date, time, group, venue, homeName, awayName, matchOfWeek = false) {
   return {
@@ -623,6 +634,9 @@ function renderMatchCard(item) {
             `
             : ""
         }
+
+        ${renderCommunityStats(item.id)}
+        ${renderPointsSimulator(item.id)}
 
         <div class="card-footer">
           <span class="venue">${escapeHtml(item.venue)}</span>
@@ -932,6 +946,9 @@ function updatePredictionScore(input) {
   prediction.updatedAt = new Date().toISOString();
   persist();
   updateCardSaveState(matchId);
+  if (isPredictionComplete(prediction)) {
+    pushPredictionToSupabase(state.activePlayerId, matchId, prediction);
+  }
 }
 
 function updatePredictionScorer(select) {
@@ -943,6 +960,7 @@ function updatePredictionScorer(select) {
   persist();
   updateCardSaveState(matchId);
   showToast("Prediction saved");
+  pushPredictionToSupabase(state.activePlayerId, matchId, prediction);
 }
 
 function updateResultScore(input) {
@@ -955,6 +973,9 @@ function updateResultScore(input) {
     delete state.results[matchId];
   }
   persist();
+  if (isResultComplete(state.results[matchId])) {
+    pushResultToSupabase(matchId, state.results[matchId]);
+  }
 }
 
 function updateSpecialField(field) {
@@ -962,6 +983,7 @@ function updateSpecialField(field) {
   special[field.dataset.specialField] = field.value;
   persist();
   showToast("Extra pick saved");
+  pushSpecialToSupabase(state.activePlayerId, special);
 }
 
 function updateProfileField(input) {
@@ -972,6 +994,7 @@ function updateProfileField(input) {
   persist();
   renderIdentityCard();
   showToast("Profile saved");
+  pushPlayerToSupabase(player);
 }
 
 function updatePoolField(input) {
@@ -1011,6 +1034,7 @@ function upsertPlayer({ name, email, activate }) {
   state.predictions[player.id] = state.predictions[player.id] || {};
   state.specials[player.id] = state.specials[player.id] || {};
   if (activate) state.activePlayerId = player.id;
+  pushPlayerToSupabase(player);
   return player;
 }
 
@@ -1073,11 +1097,24 @@ async function registerFromForm(source) {
   const player = upsertPlayer({ name: name || emailName(email), email, activate: true });
   persist();
   renderApp();
+  
+  // Push player, predictions, and specials
+  await pushPlayerToSupabase(player);
+  const predictions = state.predictions[player.id] || {};
+  for (const [matchId, pred] of Object.entries(predictions)) {
+    if (isPredictionComplete(pred)) {
+      await pushPredictionToSupabase(player.id, matchId, pred);
+    }
+  }
+  const special = state.specials[player.id] || {};
+  await pushSpecialToSupabase(player.id, special);
+
   await sendInviteEmail({ name: player.name, email, statusSelector: "#registerStatus" });
 }
 
 async function sendInviteEmail({ name, email, statusSelector }) {
   const status = document.querySelector(statusSelector);
+  const panel = status.closest(".panel");
   setInlineStatus(status, "Sending invite...");
   const joinUrl = buildJoinUrl(email, name);
   try {
@@ -1092,13 +1129,15 @@ async function sendInviteEmail({ name, email, statusSelector }) {
       status,
       data.sent
         ? `Invite sent to ${email}.`
-        : `Email service is not configured yet. Join link: ${link}`,
+        : `Join link copied to clipboard!`
     );
     if (!data.sent) copyText(link);
+    renderInviteQrCode(panel, link);
   } catch (error) {
     console.warn(error);
-    setInlineStatus(status, `Could not send email from this browser. Join link: ${joinUrl}`);
+    setInlineStatus(status, `Join link copied to clipboard!`);
     copyText(joinUrl);
+    renderInviteQrCode(panel, joinUrl);
   }
 }
 
@@ -1308,3 +1347,309 @@ function showToast(message) {
     elements.toast.classList.remove("is-visible");
   }, 1600);
 }
+
+// NEW HELPER FUNCTIONS FOR SUPABASE, SIMULATION, STATS & CONFETTI
+
+async function syncFromSupabase() {
+  if (!supabaseClient) return;
+  try {
+    const { data: dbPlayers, error: errPlayers } = await supabaseClient
+      .from("wc26_players")
+      .select("*");
+    if (errPlayers) throw errPlayers;
+
+    const { data: dbPredictions, error: errPredictions } = await supabaseClient
+      .from("wc26_predictions")
+      .select("*");
+    if (errPredictions) throw errPredictions;
+
+    const { data: dbSpecials, error: errSpecials } = await supabaseClient
+      .from("wc26_specials")
+      .select("*");
+    if (errSpecials) throw errSpecials;
+
+    const { data: dbResults, error: errResults } = await supabaseClient
+      .from("wc26_results")
+      .select("*");
+    if (errResults) throw errResults;
+
+    if (dbPlayers && dbPlayers.length > 0) {
+      state.players = dbPlayers;
+    }
+
+    if (dbPredictions) {
+      dbPredictions.forEach(pred => {
+        state.predictions[pred.player_id] = state.predictions[pred.player_id] || {};
+        state.predictions[pred.player_id][pred.match_id] = {
+          home: pred.home,
+          away: pred.away,
+          homeScorer: pred.home_scorer,
+          awayScorer: pred.away_scorer
+        };
+      });
+    }
+
+    if (dbSpecials) {
+      dbSpecials.forEach(sp => {
+        state.specials[sp.player_id] = {
+          champion: sp.champion,
+          finalist: sp.finalist,
+          topScorer: sp.top_scorer
+        };
+      });
+    }
+
+    if (dbResults) {
+      dbResults.forEach(res => {
+        state.results[res.match_id] = {
+          home: res.home,
+          away: res.away
+        };
+      });
+    }
+
+    persist();
+    renderApp();
+    showToast("Synced with database");
+  } catch (err) {
+    console.error("Failed to sync with Supabase:", err);
+  }
+}
+
+async function pushPlayerToSupabase(player) {
+  if (!supabaseClient) return;
+  try {
+    await supabaseClient.from("wc26_players").upsert({
+      id: player.id,
+      name: player.name,
+      email: player.email,
+      handle: player.handle,
+      favorite: player.favorite,
+      color: player.color,
+      updated_at: new Date().toISOString()
+    });
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+async function pushPredictionToSupabase(playerId, matchId, prediction) {
+  if (!supabaseClient) return;
+  try {
+    await supabaseClient.from("wc26_predictions").upsert({
+      player_id: playerId,
+      match_id: matchId,
+      home: prediction.home,
+      away: prediction.away,
+      home_scorer: prediction.homeScorer || "",
+      away_scorer: prediction.awayScorer || "",
+      updated_at: new Date().toISOString()
+    });
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+async function pushSpecialToSupabase(playerId, specials) {
+  if (!supabaseClient) return;
+  try {
+    await supabaseClient.from("wc26_specials").upsert({
+      player_id: playerId,
+      champion: specials.champion || "",
+      finalist: specials.finalist || "",
+      top_scorer: specials.topScorer || "",
+      updated_at: new Date().toISOString()
+    });
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+async function pushResultToSupabase(matchId, result) {
+  if (!supabaseClient) return;
+  try {
+    await supabaseClient.from("wc26_results").upsert({
+      match_id: matchId,
+      home: result.home,
+      away: result.away,
+      updated_at: new Date().toISOString()
+    });
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+function getMatchStats(matchId) {
+  let homeWins = 0;
+  let awayWins = 0;
+  let draws = 0;
+  let totalPredictions = 0;
+  let totalHomeScore = 0;
+  let totalAwayScore = 0;
+
+  state.players.forEach(player => {
+    const pred = state.predictions[player.id]?.[matchId];
+    if (pred && isPredictionComplete(pred)) {
+      totalPredictions++;
+      const h = Number(pred.home);
+      const a = Number(pred.away);
+      totalHomeScore += h;
+      totalAwayScore += a;
+      if (h > a) homeWins++;
+      else if (a > h) awayWins++;
+      else draws++;
+    }
+  });
+
+  if (totalPredictions === 0) return null;
+
+  return {
+    total: totalPredictions,
+    homePct: Math.round((homeWins / totalPredictions) * 100),
+    awayPct: Math.round((awayWins / totalPredictions) * 100),
+    drawPct: Math.round((draws / totalPredictions) * 100),
+    avgHome: (totalHomeScore / totalPredictions).toFixed(1),
+    avgAway: (totalAwayScore / totalPredictions).toFixed(1)
+  };
+}
+
+function renderCommunityStats(matchId) {
+  const stats = getMatchStats(matchId);
+  if (!stats) return "";
+  return `
+    <div class="community-stats">
+      <div class="stats-header">
+        <span>Community predictions (${stats.total} players)</span>
+        <span>Avg: ${stats.avgHome} - ${stats.avgAway}</span>
+      </div>
+      <div class="stats-bar">
+        <div class="bar-segment home" style="width: ${stats.homePct}%" title="Home: ${stats.homePct}%"></div>
+        <div class="bar-segment draw" style="width: ${stats.drawPct}%" title="Draw: ${stats.drawPct}%"></div>
+        <div class="bar-segment away" style="width: ${stats.awayPct}%" title="Away: ${stats.awayPct}%"></div>
+      </div>
+      <div class="stats-labels">
+        <span>Home Win: ${stats.homePct}%</span>
+        <span>Draw: ${stats.drawPct}%</span>
+        <span>Away Win: ${stats.awayPct}%</span>
+      </div>
+    </div>
+  `;
+}
+
+function renderPointsSimulator(matchId) {
+  const result = state.results[matchId];
+  const resultComplete = isResultComplete(result);
+  if (resultComplete) return "";
+  return `
+    <div class="simulator-section">
+      <button class="simulator-toggle" type="button" onclick="toggleSimulator('${matchId}')">
+        🔮 Simulate Points
+      </button>
+      <div class="simulator-body" id="sim-${matchId}" hidden>
+        <p class="sim-help">Enter hypothetical final score:</p>
+        <div class="sim-inputs">
+          <input type="number" min="0" max="9" class="sim-score-input" placeholder="Home" data-sim-home="${matchId}" oninput="runSimulation('${matchId}')" />
+          <span>-</span>
+          <input type="number" min="0" max="9" class="sim-score-input" placeholder="Away" data-sim-away="${matchId}" oninput="runSimulation('${matchId}')" />
+        </div>
+        <div class="sim-output" id="sim-out-${matchId}"></div>
+      </div>
+    </div>
+  `;
+}
+
+window.toggleSimulator = function(matchId) {
+  const body = document.getElementById(`sim-${matchId}`);
+  if (body) {
+    body.hidden = !body.hidden;
+  }
+};
+
+window.runSimulation = function(matchId) {
+  const homeInput = document.querySelector(`[data-sim-home="${matchId}"]`);
+  const awayInput = document.querySelector(`[data-sim-away="${matchId}"]`);
+  const output = document.getElementById(`sim-out-${matchId}`);
+  if (!homeInput || !awayInput || !output) return;
+
+  const hVal = homeInput.value;
+  const aVal = awayInput.value;
+  if (hVal === "" || aVal === "") {
+    output.innerHTML = "";
+    return;
+  }
+
+  const item = matchMap.get(matchId);
+  const prediction = playerPrediction(matchId);
+  if (!isPredictionComplete(prediction)) {
+    output.innerHTML = `<span class="sim-error">Set your prediction first!</span>`;
+    return;
+  }
+
+  const mockResult = { home: hVal, away: aVal };
+  const scored = scorePrediction(prediction, mockResult, item);
+  
+  let resultText = "";
+  let typeText = "";
+  if (scored.exact) {
+    resultText = `Exact score prediction!`;
+    typeText = `+${scored.points} pts ${item.matchOfWeek ? "(x2 Match of Week boost included!)" : ""}`;
+  } else if (scored.points > 0) {
+    const basePts = item.matchOfWeek ? scored.points / 2 : scored.points;
+    const details = basePts === 4 ? "correct outcome + difference" : "correct outcome";
+    resultText = `Correct outcome (${details})!`;
+    typeText = `+${scored.points} pts ${item.matchOfWeek ? "(x2 Match of Week boost included!)" : ""}`;
+  } else {
+    resultText = `Incorrect outcome prediction.`;
+    typeText = `0 pts`;
+  }
+
+  output.innerHTML = `
+    <div class="sim-result-card ${scored.points > 0 ? "is-points" : "is-zero"}">
+      <div class="sim-points">${typeText}</div>
+      <div class="sim-explain">${resultText} (Prediction: ${prediction.home}-${prediction.away})</div>
+    </div>
+  `;
+
+  if (scored.exact) {
+    triggerConfetti(output.querySelector(".sim-result-card"));
+  }
+};
+
+function triggerConfetti(targetNode) {
+  const container = document.createElement("div");
+  container.className = "confetti-container";
+  targetNode.appendChild(container);
+  
+  for (let i = 0; i < 30; i++) {
+    const p = document.createElement("div");
+    p.className = "confetti-particle";
+    p.style.setProperty("--x", `${(Math.random() - 0.5) * 160}px`);
+    p.style.setProperty("--y", `${-Math.random() * 80 - 40}px`);
+    p.style.setProperty("--color", colors[Math.floor(Math.random() * colors.length)]);
+    p.style.setProperty("--delay", `${Math.random() * 0.25}s`);
+    container.appendChild(p);
+  }
+  
+  setTimeout(() => {
+    container.remove();
+  }, 2000);
+}
+
+function renderInviteQrCode(panel, url) {
+  if (!panel) return;
+  const existing = panel.querySelector(".qr-container");
+  if (existing) existing.remove();
+
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&color=2f80ed&bgcolor=0b1d38&data=${encodeURIComponent(url)}`;
+  
+  const qrDiv = document.createElement("div");
+  qrDiv.className = "qr-container";
+  qrDiv.innerHTML = `
+    <div class="qr-box">
+      <img src="${qrUrl}" alt="Join QR Code" class="qr-img" />
+    </div>
+    <p class="qr-text">Scan to join the pool instantly on your phone</p>
+  `;
+  panel.appendChild(qrDiv);
+}
+
