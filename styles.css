@@ -125,23 +125,29 @@ input, select {
   gap: 12px;
 }
 
-.brand-ball {
+.brand-logo-container {
   width: 44px;
   height: 44px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-  border: 2px solid var(--orange);
-  position: relative;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--panel-border);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 0 12px var(--orange-glow);
-  animation: spinSlow 15s linear infinite;
+  backdrop-filter: blur(8px);
 }
 
-.brand-ball::after {
-  content: "⚽";
-  font-size: 1.4rem;
+.brand-svg-logo {
+  width: 26px;
+  height: 26px;
+  color: var(--orange);
+  filter: drop-shadow(0 0 4px var(--orange-glow));
+  animation: floatBall 4s ease-in-out infinite;
+}
+
+@keyframes floatBall {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-3px) rotate(15deg); }
 }
 
 @keyframes spinSlow {
@@ -158,13 +164,14 @@ input, select {
 }
 
 h1 {
-  font-size: 1.65rem;
+  font-size: clamp(1.25rem, 4vw, 1.55rem);
   font-weight: 800;
   letter-spacing: -0.5px;
   line-height: 1.1;
-  background: linear-gradient(to right, #ffffff, #94a3b8);
+  background: linear-gradient(to right, #ffffff, #cbd5e1);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  white-space: nowrap;
 }
 
 .header-actions {
@@ -280,18 +287,22 @@ h1 {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
+  white-space: nowrap;
+  cursor: pointer;
 }
 
 .date-tab.is-active {
-  background: var(--orange-glow);
+  background: var(--orange-gradient);
   border-color: var(--orange);
-  box-shadow: 0 0 15px rgba(255, 118, 26, 0.15);
+  box-shadow: 0 8px 24px var(--orange-glow);
   transform: translateY(-2px);
+  color: white;
 }
 
 .date-tab.is-active .tab-sub {
-  color: var(--text);
+  color: white;
   font-weight: 600;
+  opacity: 0.95;
 }
 
 .tab-sub {
@@ -299,6 +310,7 @@ h1 {
   font-size: 0.68rem;
   color: var(--muted);
   margin-top: 4px;
+  white-space: nowrap;
 }
 
 /* View Sections */
@@ -466,29 +478,71 @@ h2 {
   gap: 8px;
 }
 
-.score-input {
-  width: 52px;
-  height: 52px;
-  border-radius: 12px;
+.score-stepper {
+  display: flex;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.25);
   border: 1px solid var(--panel-border);
-  background: rgba(0, 0, 0, 0.3);
-  text-align: center;
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 1.45rem;
-  font-weight: 700;
+  border-radius: 12px;
+  overflow: hidden;
+  height: 46px;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
   transition: all 0.2s ease;
 }
 
-.score-input:focus {
+.score-stepper:focus-within {
   border-color: var(--orange);
   box-shadow: 0 0 10px rgba(255, 118, 26, 0.15);
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.step-btn {
+  width: 32px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.02);
+  transition: all 0.2s;
+  user-select: none;
+}
+
+.step-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+}
+
+.step-btn:active {
+  background: var(--orange-glow);
+  color: var(--orange);
+}
+
+.score-input {
+  width: 36px;
+  height: 100%;
+  border: none;
+  background: transparent;
+  text-align: center;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  padding: 0;
+}
+
+.score-input:focus {
+  outline: none;
+  background: transparent;
+  box-shadow: none;
 }
 
 .score-separator {
   font-size: 1.5rem;
   font-weight: 700;
   color: var(--muted);
+  user-select: none;
 }
 
 /* Scorer Row */

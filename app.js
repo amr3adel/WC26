@@ -670,17 +670,21 @@ function renderTeam(team) {
 
 function scoreInput(matchId, side, value = "") {
   return `
-    <input
-      class="score-input"
-      type="number"
-      min="0"
-      max="20"
-      inputmode="numeric"
-      value="${escapeHtml(value ?? "")}"
-      data-score-field="${side}"
-      data-match-id="${matchId}"
-      aria-label="${side === "home" ? "Home" : "Away"} score"
-    />
+    <div class="score-stepper">
+      <button class="step-btn minus" type="button" onclick="changeScore('${matchId}', '${side}', -1)" aria-label="Decrement score">−</button>
+      <input
+        class="score-input"
+        type="number"
+        min="0"
+        max="20"
+        inputmode="numeric"
+        value="${escapeHtml(value ?? "")}"
+        data-score-field="${side}"
+        data-match-id="${matchId}"
+        aria-label="${side === "home" ? "Home" : "Away"} score"
+      />
+      <button class="step-btn plus" type="button" onclick="changeScore('${matchId}', '${side}', 1)" aria-label="Increment score">+</button>
+    </div>
   `;
 }
 
@@ -1652,4 +1656,15 @@ function renderInviteQrCode(panel, url) {
   `;
   panel.appendChild(qrDiv);
 }
+
+window.changeScore = function(matchId, side, delta) {
+  const input = document.querySelector(`input[data-match-id="${matchId}"][data-score-field="${side}"]`);
+  if (!input) return;
+  let val = parseInt(input.value);
+  if (isNaN(val)) val = 0;
+  val = Math.max(0, Math.min(20, val + delta));
+  input.value = val;
+  // Trigger native input event so application listeners detect the state change
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+};
 
