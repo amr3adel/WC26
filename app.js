@@ -231,9 +231,19 @@ const teams = {
     form: ["W", "W", "D", "W", "L"],
     scorers: ["Hakimi", "En-Nesyri", "Ziyech", "Rahimi"],
   },
+  Mexico: {
+    flag: "🇲🇽",
+    form: ["W", "D", "W", "L", "W"],
+    scorers: ["Quiñones", "Jiménez", "Romo", "Chávez"],
+  },
+  "South Korea": {
+    flag: "🇰🇷",
+    form: ["W", "W", "D", "W", "L"],
+    scorers: ["Son Heung-min", "Hwang In-Beom", "Oh Hyeon-Gyu", "Lee Kang-In"],
+  },
 };
 
-const schedule = [
+let schedule = [
   match("2026-06-12", "18:00", "Group B", "Toronto Stadium", "Canada", "Bosnia and Herzegovina"),
   match("2026-06-12", "21:00", "Group D", "Los Angeles Stadium", "USA", "Paraguay"),
   match("2026-06-13", "16:00", "Group C", "Boston Stadium", "Haiti", "Scotland"),
@@ -299,8 +309,8 @@ const demoPredictions = {
 };
 
 const colors = ["#ff5a00", "#2f80ed", "#34c759", "#f5b21a", "#e84d4d", "#a970ff", "#00b7c7"];
-const dateKeys = [...new Set(schedule.map((item) => item.date))].sort();
-const allTeamNames = [...new Set(schedule.flatMap((item) => [item.home.name, item.away.name]))].sort();
+let dateKeys = [...new Set(schedule.map((item) => item.date))].sort();
+let allTeamNames = [...new Set(schedule.flatMap((item) => [item.home.name, item.away.name]))].sort();
 const matchMap = new Map(schedule.map((item) => [item.id, item]));
 
 let state = loadState();
@@ -333,38 +343,13 @@ handleJoinLink();
 renderApp();
 bindEvents();
 syncFromSupabase();
+loadLiveSchedule();
 
-
-function getShiftedDate(originalDate) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  
-  // Reference date: "2026-06-16" is the middle of our tournament
-  const refDate = new Date(2026, 5, 16); // June 16, 2026 (Month is 0-indexed)
-  
-  // Calculate difference in milliseconds and days
-  const diffMs = today.getTime() - refDate.getTime();
-  const diffDays = Math.round(diffMs / (24 * 60 * 60 * 1000));
-  
-  // Parse original date
-  const [y, m, d] = originalDate.split("-").map(Number);
-  const orig = new Date(y, m - 1, d);
-  
-  // Shift original date by the calculated difference
-  orig.setDate(orig.getDate() + diffDays);
-  
-  // Return YYYY-MM-DD format
-  const year = orig.getFullYear();
-  const month = String(orig.getMonth() + 1).padStart(2, "0");
-  const day = String(orig.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
 
 function match(date, time, group, venue, homeName, awayName, matchOfWeek = false) {
-  const shiftedDate = getShiftedDate(date);
   return {
-    id: `${date}-${slug(homeName)}-${slug(awayName)}`, // Stable ID using hardcoded date to preserve predictions/results keys
-    date: shiftedDate, // Shifted date for active layout rendering
+    id: `${date}-${slug(homeName)}-${slug(awayName)}`,
+    date,
     time,
     competition: "World Cup 2026",
     stage: group,
@@ -1744,4 +1729,88 @@ window.changePlayerColor = function(color) {
   showToast("Theme color updated");
   pushPlayerToSupabase(player);
 };
+
+// Dynamic schedule loading from GitHub JSON
+async function loadLiveSchedule() {
+  const url = "https://raw.githubusercontent.com/openfootball/worldcup.json/master/2026/worldcup.json";
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    if (data && data.matches) {
+      parseLiveMatches(data.matches);
+    }
+  } catch (error) {
+    console.warn("Failed to load live schedule from GitHub, using fallback:", error);
+  }
+}
+
+const teamNameMap = {
+  'Bosnia & Herzegovina': 'Bosnia and Herzegovina',
+  'Cape Verde': 'Cabo Verde',
+  'Curaçao': 'Curacao',
+  'Czech Republic': 'Czechia',
+  'DR Congo': 'Congo DR',
+  'Iran': 'IR Iran',
+  'Ivory Coast': "Cote d'Ivoire",
+  'Turkey': 'Turkiye'
+};
+
+function parseLiveMatches(jsonMatches) {
+  const parsed = [];
+  const liveResults = {};
+
+  jsonMatches.forEach((m) => {
+    const t1 = teamNameMap[m.team1] || m.team1;
+    const t2 = teamNameMap[m.team2] || m.team2;
+
+    if (teams[t1] && teams[t2]) {
+      const matchId = `${m.date}-${slug(t1)}-${slug(t2)}`;
+      const group = m.group || "Group Stage";
+      const venue = m.ground || "World Cup Stadium";
+      const matchOfWeek = m.group === "Group G" && (t1 === "Egypt" || t2 === "Egypt");
+
+      parsed.push({
+        id: matchId,
+        date: m.date,
+        time: m.time ? m.time.split(" ")[0] : "18:00",
+        competition: "World Cup 2026",
+        stage: group,
+        venue: venue,
+        matchOfWeek,
+        home: { name: t1, ...teams[t1] },
+        away: { name: t2, ...teams[t2] },
+      });
+
+      if (m.score && m.score.ft && m.score.ft.length === 2) {
+        liveResults[matchId] = {
+          home: String(m.score.ft[0]),
+          away: String(m.score.ft[1])
+        };
+      }
+    }
+  });
+
+  if (parsed.length > 0) {
+    schedule = parsed;
+
+    dateKeys = [...new Set(schedule.map((item) => item.date))].sort();
+    allTeamNames = [...new Set(schedule.flatMap((item) => [item.home.name, item.away.name]))].sort();
+    
+    matchMap.clear();
+    schedule.forEach((item) => matchMap.set(item.id, item));
+
+    // Merge live results into state.results
+    state.results = { ...liveResults, ...state.results };
+
+    // Select correct default date if current one is not in keys anymore
+    const today = todayKey();
+    if (!dateKeys.includes(state.selectedDate)) {
+      state.selectedDate = dateKeys.includes(today) ? today : defaultSelectedDate();
+    }
+
+    persist();
+    renderApp();
+  }
+}
 
