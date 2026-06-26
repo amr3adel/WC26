@@ -827,6 +827,8 @@ h2 {
   font-size: 0.85rem;
   color: white;
   text-transform: uppercase;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3), 0 0 8px var(--avatar);
+  border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
 .rank-number {
@@ -1390,4 +1392,80 @@ h2 {
 }
 .ranking-item:nth-child(3) .avatar {
   border: 2px solid #b45309;
+}
+
+/* Today Jump Button */
+.today-jump-btn {
+  background: rgba(255, 118, 26, 0.1);
+  border: 1px solid var(--orange);
+  color: var(--orange);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 0 10px rgba(255, 118, 26, 0.15);
+}
+
+.today-jump-btn:hover {
+  background: var(--orange-gradient);
+  color: white;
+  box-shadow: 0 0 15px rgba(255, 118, 26, 0.35);
+  transform: translateY(-1px);
+}
+
+.today-jump-btn:active {
+  transform: translateY(0);
+}
+
+/* Hide number input spinners */
+.score-input::-webkit-outer-spin-button,
+.score-input::-webkit-inner-spin-button,
+.sim-score-input::-webkit-outer-spin-button,
+.sim-score-input::-webkit-inner-spin-button,
+.number-input::-webkit-outer-spin-button,
+.number-input::-webkit-inner-spin-button {
+  -webkit-appearance: none !important;
+  margin: 0 !important;
+  display: none !important;
+}
+.score-input[type=number],
+.sim-score-input[type=number],
+.number-input[type=number] {
+  -moz-appearance: textfield !important;
+}
+
+/* Color Swatches Grid */
+.color-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.color-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2.5px solid rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+.color-swatch:hover {
+  transform: scale(1.15);
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+.color-swatch.is-active {
+  border-color: white;
+  transform: scale(1.2);
+  box-shadow: 0 0 12px currentColor;
 }

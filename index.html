@@ -27,16 +27,24 @@
         <div class="brand-row">
           <div class="brand-lockup">
             <div class="brand-logo-container" aria-hidden="true">
-              <svg class="brand-svg-logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10" />
-                <path d="m12 2-2 3h4Z" />
-                <path d="m12 22-2-3h4Z" />
-                <path d="m2 12 3-2v4Z" />
-                <path d="m22 12-3-2v4Z" />
-                <path d="m10 5 2 4 2-4" />
-                <path d="m10 19 2-4 2 4" />
-                <path d="m5 10 4 2-4 2" />
-                <path d="m19 10-4 2 4 2" />
+              <svg class="brand-svg-logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <!-- Glowing Outer Ring in USA colors -->
+                <circle cx="12" cy="12" r="10" stroke="url(#usaGradient)" stroke-width="2" fill="rgba(10, 25, 49, 0.5)" />
+                <!-- USA Flag elements: Stylized mini stars -->
+                <path d="M12 4.5 L12.5 5.7 L13.8 5.7 L12.7 6.4 L13.1 7.6 L12 6.9 L10.9 7.6 L11.3 6.4 L10.2 5.7 L11.5 5.7 Z" fill="#ffffff" stroke="none" />
+                <circle cx="6.5" cy="12" r="1.2" fill="#3b82f6" stroke="none" />
+                <circle cx="17.5" cy="12" r="1.2" fill="#ef4444" stroke="none" />
+                <!-- Styled soccer lines around the "26" -->
+                <circle cx="12" cy="13" r="5" stroke="rgba(255,255,255,0.15)" stroke-dasharray="2 2" stroke-width="1" />
+                <!-- Bold "26" at the center -->
+                <text x="12" y="16.5" font-family="'Outfit', sans-serif" font-weight="900" font-size="9" fill="#ffffff" text-anchor="middle" stroke="none">26</text>
+                <defs>
+                  <linearGradient id="usaGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#ef4444" />
+                    <stop offset="50%" stop-color="#ffffff" />
+                    <stop offset="100%" stop-color="#3b82f6" />
+                  </linearGradient>
+                </defs>
               </svg>
             </div>
             <div>
@@ -72,7 +80,10 @@
             <p id="selectedDateMeta">Today</p>
             <h2 id="predictTitle">Match predictions</h2>
           </div>
-          <div class="round-chip" id="matchCountChip">0 matches</div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <button id="jumpToTodayBtn" class="today-jump-btn" type="button" style="display: none;">Today</button>
+            <div class="round-chip" id="matchCountChip">0 matches</div>
+          </div>
         </div>
         <div class="match-list" id="matchList"></div>
       </section>

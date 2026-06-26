@@ -396,6 +396,21 @@ function bindEvents() {
       resetData();
       return;
     }
+
+    const jumpToday = event.target.closest("#jumpToTodayBtn");
+    if (jumpToday) {
+      const today = todayKey();
+      if (dateKeys.includes(today)) {
+        state.selectedDate = today;
+      } else {
+        state.selectedDate = defaultSelectedDate();
+      }
+      persist();
+      renderPredict();
+      renderDateStrip();
+      showToast("Jumped to today");
+      return;
+    }
   });
 
   document.addEventListener("input", (event) => {
@@ -533,6 +548,15 @@ function renderIdentityCard() {
   elements.identityCard.classList.toggle("is-registered", registered);
   const button = elements.identityCard.querySelector("button");
   if (button) button.textContent = registered ? "Profile" : "Register";
+
+  // Update top-right profile settings avatar dynamically
+  const profileBtn = document.querySelector('.header-actions [data-view-target="profile"]');
+  if (profileBtn) {
+    profileBtn.innerHTML = `<span class="avatar" style="--avatar: ${player.color}; width: 100%; height: 100%; font-size: 0.85rem; box-shadow: 0 0 10px var(--avatar);">${initials(player.name)}</span>`;
+    profileBtn.style.padding = '0';
+    profileBtn.style.overflow = 'hidden';
+    profileBtn.style.border = 'none';
+  }
 }
 
 function renderDateStrip() {
@@ -579,6 +603,16 @@ function renderPredict() {
   const matches = matchesForDate(state.selectedDate);
   elements.selectedDateMeta.textContent = dateLongLabel(state.selectedDate);
   elements.matchCountChip.textContent = `${matches.length} match${matches.length === 1 ? "" : "es"}`;
+  
+  // Toggle "Jump to Today" button visibility dynamically
+  const today = todayKey();
+  const jumpBtn = document.getElementById("jumpToTodayBtn");
+  if (jumpBtn) {
+    const isTodayInKeys = dateKeys.includes(today);
+    const shouldShow = isTodayInKeys && state.selectedDate !== today;
+    jumpBtn.style.display = shouldShow ? "inline-block" : "none";
+  }
+
   elements.matchList.innerHTML = matches.length
     ? matches.map((item) => renderMatchCard(item)).join("")
     : `<div class="empty-state">No fixtures saved for this day.</div>`;
@@ -922,6 +956,14 @@ function renderProfile() {
               .join("")}
           </select>
         </label>
+        <div class="field wide-field">
+          <span class="field-label">Avatar Glow Color</span>
+          <div class="color-swatches">
+            ${colors.map(color => `
+              <button type="button" class="color-swatch${color === player.color ? " is-active" : ""}" style="background-color: ${color}" onclick="changePlayerColor('${color}')" aria-label="Select color ${color}"></button>
+            `).join("")}
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1666,5 +1708,14 @@ window.changeScore = function(matchId, side, delta) {
   input.value = val;
   // Trigger native input event so application listeners detect the state change
   input.dispatchEvent(new Event("input", { bubbles: true }));
+};
+
+window.changePlayerColor = function(color) {
+  const player = activePlayer();
+  player.color = color;
+  persist();
+  renderApp();
+  showToast("Theme color updated");
+  pushPlayerToSupabase(player);
 };
 
