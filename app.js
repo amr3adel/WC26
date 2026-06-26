@@ -1087,6 +1087,7 @@ function handleJoinLink() {
   if (!email) return;
   const name = params.get("name")?.trim() || emailName(email);
   upsertPlayer({ name, email, activate: true });
+  state.activeView = "predict";
   persist();
   window.history.replaceState({}, document.title, window.location.pathname);
   showToast(`Welcome, ${name}`);
@@ -1176,6 +1177,7 @@ async function registerFromForm(source) {
   const player = upsertPlayer({ name: name || emailName(email), email, activate: true });
   persist();
   renderApp();
+  setView("predict");
   
   // Push player, predictions, and specials
   await pushPlayerToSupabase(player);
