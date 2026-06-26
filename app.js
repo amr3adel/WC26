@@ -655,10 +655,15 @@ function renderMatchCard(item) {
     <article class="match-card${featuredClass}" data-match-card="${item.id}">
       ${
         item.matchOfWeek
-          ? `<div class="feature-ribbon"><div><strong>Match of the week</strong><span>Earn extra points</span></div></div>`
+          ? `<div class="feature-ribbon"></div>`
           : ""
       }
       <div class="match-inner">
+        ${
+          item.matchOfWeek
+            ? `<div class="match-of-week-banner">🔥 Match of the Week &middot; 2x Points</div>`
+            : ""
+        }
         <div class="match-meta">
           <span class="match-league"><span class="mini-ball" aria-hidden="true"></span>${item.competition}</span>
           <span class="match-time">${item.time}</span>
@@ -745,6 +750,7 @@ function scoreInput(matchId, side, value = "") {
         max="20"
         inputmode="numeric"
         value="${escapeHtml(value ?? "")}"
+        placeholder="-"
         data-score-field="${side}"
         data-match-id="${matchId}"
         aria-label="${side === "home" ? "Home" : "Away"} score"
