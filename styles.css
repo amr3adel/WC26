@@ -1301,3 +1301,93 @@ h2 {
     gap: 16px;
   }
 }
+
+/* Glowing Ambient Background Spots */
+.glow-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.glow-spot {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(100px);
+  opacity: 0.15;
+  animation: pulseGlow 8s ease-in-out infinite alternate;
+}
+
+.spot-1 {
+  top: -10%;
+  left: -10%;
+  width: 50vw;
+  height: 50vw;
+  background: var(--orange);
+}
+
+.spot-2 {
+  bottom: 10%;
+  right: -10%;
+  width: 60vw;
+  height: 60vw;
+  background: var(--blue);
+  animation-delay: -2s;
+}
+
+.spot-3 {
+  top: 40%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40vw;
+  height: 40vw;
+  background: var(--green);
+  opacity: 0.08;
+  animation-delay: -4s;
+}
+
+@keyframes pulseGlow {
+  0% { transform: scale(1) translate3d(0, 0, 0); opacity: 0.12; }
+  100% { transform: scale(1.15) translate3d(5%, 5%, 0); opacity: 0.18; }
+}
+
+/* Nav SVG Icons styling */
+.nav-svg-icon {
+  width: 22px;
+  height: 22px;
+  stroke-width: 2.2;
+  transition: transform 0.2s ease;
+}
+
+.nav-item.is-active .nav-svg-icon {
+  transform: translateY(-2px) scale(1.1);
+  stroke: var(--orange);
+}
+
+/* Leaderboard Rank Highlights (Medals) */
+.ranking-item:nth-child(1) .rank-number {
+  color: var(--yellow);
+  text-shadow: 0 0 8px rgba(245, 158, 11, 0.4);
+}
+.ranking-item:nth-child(1) .avatar {
+  border: 2px solid var(--yellow);
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.25);
+}
+
+.ranking-item:nth-child(2) .rank-number {
+  color: #cbd5e1;
+}
+.ranking-item:nth-child(2) .avatar {
+  border: 2px solid #cbd5e1;
+}
+
+.ranking-item:nth-child(3) .rank-number {
+  color: #b45309;
+}
+.ranking-item:nth-child(3) .avatar {
+  border: 2px solid #b45309;
+}
