@@ -335,10 +335,36 @@ bindEvents();
 syncFromSupabase();
 
 
+function getShiftedDate(originalDate) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  // Reference date: "2026-06-16" is the middle of our tournament
+  const refDate = new Date(2026, 5, 16); // June 16, 2026 (Month is 0-indexed)
+  
+  // Calculate difference in milliseconds and days
+  const diffMs = today.getTime() - refDate.getTime();
+  const diffDays = Math.round(diffMs / (24 * 60 * 60 * 1000));
+  
+  // Parse original date
+  const [y, m, d] = originalDate.split("-").map(Number);
+  const orig = new Date(y, m - 1, d);
+  
+  // Shift original date by the calculated difference
+  orig.setDate(orig.getDate() + diffDays);
+  
+  // Return YYYY-MM-DD format
+  const year = orig.getFullYear();
+  const month = String(orig.getMonth() + 1).padStart(2, "0");
+  const day = String(orig.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function match(date, time, group, venue, homeName, awayName, matchOfWeek = false) {
+  const shiftedDate = getShiftedDate(date);
   return {
-    id: `${date}-${slug(homeName)}-${slug(awayName)}`,
-    date,
+    id: `${date}-${slug(homeName)}-${slug(awayName)}`, // Stable ID using hardcoded date to preserve predictions/results keys
+    date: shiftedDate, // Shifted date for active layout rendering
     time,
     competition: "World Cup 2026",
     stage: group,
