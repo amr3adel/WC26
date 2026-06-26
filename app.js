@@ -645,6 +645,12 @@ function renderMatchCard(item) {
         ? "Saved"
         : "Needs score";
 
+  const saveStateClass = resultComplete
+    ? "is-result"
+    : complete
+      ? "is-complete"
+      : "is-pending";
+
   return `
     <article class="match-card${featuredClass}" data-match-card="${item.id}">
       ${
@@ -685,10 +691,25 @@ function renderMatchCard(item) {
 
         <div class="card-footer">
           <span class="venue">${escapeHtml(item.venue)}</span>
-          <span class="save-state ${resultComplete ? "is-result" : complete ? "is-complete" : "is-pending"}" data-save-state="${item.id}">
+          <span class="save-state ${saveStateClass}" data-save-state="${item.id}">
             ${scoreLabel}
           </span>
         </div>
+        ${
+          status === "open"
+            ? `
+              <button 
+                id="btn-submit-${item.id}" 
+                class="submit-pick-btn ${complete ? "is-saved" : ""}" 
+                type="button" 
+                onclick="submitPrediction('${item.id}')"
+                ${complete ? "disabled" : ""}
+              >
+                ${complete ? "✓ Prediction Locked" : "Lock Prediction"}
+              </button>
+            `
+            : ""
+        }
         ${
           resultComplete
             ? `<div class="result-summary">${renderPredictionOutcome(prediction, result, scored)}</div>`
@@ -1003,9 +1024,6 @@ function updatePredictionScore(input) {
   prediction.updatedAt = new Date().toISOString();
   persist();
   updateCardSaveState(matchId);
-  if (isPredictionComplete(prediction)) {
-    pushPredictionToSupabase(state.activePlayerId, matchId, prediction);
-  }
 }
 
 function updatePredictionScorer(select) {
@@ -1016,8 +1034,6 @@ function updatePredictionScorer(select) {
   prediction.updatedAt = new Date().toISOString();
   persist();
   updateCardSaveState(matchId);
-  showToast("Prediction saved");
-  pushPredictionToSupabase(state.activePlayerId, matchId, prediction);
 }
 
 function updateResultScore(input) {
@@ -1313,11 +1329,24 @@ function updateCardSaveState(matchId) {
   if (!stateNode) return;
   const prediction = playerPrediction(matchId);
   const complete = isPredictionComplete(prediction);
-  stateNode.textContent = complete ? "Saved" : "Needs score";
-  stateNode.classList.toggle("is-complete", complete);
-  stateNode.classList.toggle("is-pending", !complete);
-  stateNode.classList.remove("is-result");
-  if (complete) showToast("Prediction saved");
+  
+  // Show save state as "Draft Pick" before submitting
+  stateNode.textContent = complete ? "Draft Pick" : "Needs score";
+  stateNode.className = `save-state ${complete ? "is-pending" : "is-pending"}`; // Keep yellow for draft/pending
+  
+  // Dynamically update Lock Prediction button state
+  const btn = document.getElementById(`btn-submit-${matchId}`);
+  if (btn) {
+    if (complete) {
+      btn.disabled = false;
+      btn.innerHTML = "Lock Prediction";
+      btn.className = "submit-pick-btn is-ready";
+    } else {
+      btn.disabled = true;
+      btn.innerHTML = "Lock Prediction";
+      btn.className = "submit-pick-btn";
+    }
+  }
 }
 
 function matchesForDate(date) {
@@ -1813,4 +1842,58 @@ function parseLiveMatches(jsonMatches) {
     renderApp();
   }
 }
+
+// Manual submit function for predictions
+window.submitPrediction = async function(matchId) {
+  const prediction = playerPrediction(matchId);
+  if (!isPredictionComplete(prediction)) {
+    showToast("Please enter scores for both teams!");
+    return;
+  }
+  
+  const btn = document.getElementById(`btn-submit-${matchId}`);
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `⏳ Saving...`;
+  }
+  
+  try {
+    // Push prediction to Supabase
+    await pushPredictionToSupabase(state.activePlayerId, matchId, prediction);
+    
+    // Show success state on the button
+    if (btn) {
+      btn.innerHTML = `✓ Prediction Locked`;
+      btn.className = "submit-pick-btn is-saved";
+      btn.disabled = true; // Lock the button
+      
+      // Visual feedback: green glow on the card
+      const card = document.querySelector(`[data-match-card="${matchId}"]`);
+      if (card) {
+        card.style.borderColor = "var(--green)";
+        setTimeout(() => {
+          card.style.borderColor = "";
+        }, 1200);
+      }
+    }
+    
+    // Update the card status text to "Saved" (green)
+    const stateNode = [...document.querySelectorAll("[data-save-state]")].find(
+      (node) => node.dataset.saveState === matchId,
+    );
+    if (stateNode) {
+      stateNode.textContent = "Saved";
+      stateNode.className = "save-state is-complete";
+    }
+    
+    showToast("Prediction locked in!");
+  } catch (error) {
+    console.error(error);
+    showToast("Failed to sync, saved locally");
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `Lock Prediction`;
+    }
+  }
+};
 
